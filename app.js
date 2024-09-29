@@ -2,15 +2,17 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 
-async function downloadImage(imgUrl, imgNum, dir) {
+async function downloadImage(imgUrl, dir) {
   try {
     const response = await axios({
       url: imgUrl,
       responseType: 'stream'
     });
 
-    const filePath = path.resolve(dir, `${imgNum}.jpg`);
+    const imgName = path.basename(imgUrl);
+    const filePath = path.resolve(dir, imgName);
     const writer = fs.createWriteStream(filePath);
 
     response.data.pipe(writer);
@@ -20,11 +22,11 @@ async function downloadImage(imgUrl, imgNum, dir) {
       writer.on('error', reject);
     });
   } catch (error) {
-    throw new Error(`Error downloading image ${imgNum}`);
+    throw new Error(`Error downloading image ${imgUrl}`);
   }
 }
 
-async function fetchImagesFromJsonp(contentUrl, imgNum, dir) {
+async function fetchImagesFromJsonp(contentUrl, dir) {
   try {
     const response = await axios.get(contentUrl);
     const data = response.data;
@@ -37,7 +39,7 @@ async function fetchImagesFromJsonp(contentUrl, imgNum, dir) {
       let imgUrl = $('img').attr('orig');
       if (imgUrl) {
         imgUrl = imgUrl.replace(/\\\"/g, '').replace(/\/$/, '');
-        await downloadImage(imgUrl, imgNum, dir);
+        await downloadImage(imgUrl, dir);
       }
     }
   } catch (error) {
@@ -45,7 +47,7 @@ async function fetchImagesFromJsonp(contentUrl, imgNum, dir) {
   }
 }
 
-async function scrapeScribd(url, dir) {
+async function scrapeScribd(url, dir, pdf = false) {
   try {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir);
@@ -56,20 +58,63 @@ async function scrapeScribd(url, dir) {
     const scriptText = $('script:contains("docManager.addPage")').html();
     const contentUrlRegex = /contentUrl:\s*"(https:\/\/[^\"]+\.jsonp)"/g;
     let match;
-    let imgNum = 1;
-
-    console.log("Downloading images...");
 
     while ((match = contentUrlRegex.exec(scriptText)) !== null) {
       const contentUrl = match[1];
-      await fetchImagesFromJsonp(contentUrl, imgNum, dir);
-      imgNum++;
+      await fetchImagesFromJsonp(contentUrl, dir);
     }
 
-    console.log(`All images downloaded at: ${dir}`);
+    if (pdf) {
+      await imagesToPDF(dir);
+      const images = fs.readdirSync(dir).filter(file => file.endsWith('.jpg') || file.endsWith('.png'));
+      for (const image of images) {
+        fs.unlinkSync(path.join(dir, image));
+      }
+    }
   } catch (error) {
     console.error(`Error processing main page:`, error.message);
   }
+}
+
+async function imagesToPDF(dir) {
+  const doc = new PDFDocument();
+  const outputFilePath = path.join(dir, 'file.pdf');
+  const stream = fs.createWriteStream(outputFilePath);
+  doc.pipe(stream);
+
+  const images = fs.readdirSync(dir).filter(file => file.endsWith('.jpg') || file.endsWith('.png'));
+
+  for (const image of images) {
+    const imgPath = path.join(dir, image);
+    const img = doc.openImage(imgPath);
+
+    const pageWidth = doc.page.width;
+    const pageHeight = doc.page.height;
+    const imgAspectRatio = img.width / img.height;
+    const pageAspectRatio = pageWidth / pageHeight;
+
+    let imgWidth, imgHeight;
+
+    if (imgAspectRatio > pageAspectRatio) {
+      imgWidth = pageWidth;
+      imgHeight = pageWidth / imgAspectRatio;
+    } else {
+      imgHeight = pageHeight;
+      imgWidth = pageHeight * imgAspectRatio;
+    }
+
+    const x = (pageWidth - imgWidth) / 2;
+    const y = (pageHeight - imgHeight) / 2;
+
+    doc.image(imgPath, x, y, { width: imgWidth, height: imgHeight });
+    doc.addPage();
+  }
+
+  doc.end();
+  return new Promise((resolve, reject) => {
+    stream.on('finish', resolve);
+    stream.on('error', reject);
+  });
 }
 
 module.exports = scrapeScribd;
