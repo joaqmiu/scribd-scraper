@@ -77,7 +77,7 @@ async function scrapeScribd(url, dir, pdf = false) {
 }
 
 async function imagesToPDF(dir) {
-  const doc = new PDFDocument();
+  const doc = new PDFDocument({ autoFirstPage: false });
   const outputFilePath = path.join(dir, 'file.pdf');
   const stream = fs.createWriteStream(outputFilePath);
   doc.pipe(stream);
@@ -88,26 +88,8 @@ async function imagesToPDF(dir) {
     const imgPath = path.join(dir, image);
     const img = doc.openImage(imgPath);
 
-    const pageWidth = doc.page.width;
-    const pageHeight = doc.page.height;
-    const imgAspectRatio = img.width / img.height;
-    const pageAspectRatio = pageWidth / pageHeight;
-
-    let imgWidth, imgHeight;
-
-    if (imgAspectRatio > pageAspectRatio) {
-      imgWidth = pageWidth;
-      imgHeight = pageWidth / imgAspectRatio;
-    } else {
-      imgHeight = pageHeight;
-      imgWidth = pageHeight * imgAspectRatio;
-    }
-
-    const x = (pageWidth - imgWidth) / 2;
-    const y = (pageHeight - imgHeight) / 2;
-
-    doc.image(imgPath, x, y, { width: imgWidth, height: imgHeight });
-    doc.addPage();
+    doc.addPage({ size: [img.width, img.height] });
+    doc.image(imgPath, 0, 0, { width: img.width, height: img.height });
   }
 
   doc.end();
