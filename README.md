@@ -27,7 +27,7 @@ scrapeScribd(urlscribd, directory)
   });
 ```
 
-### Downlod and convert to PDF
+### Download and convert to PDF
 
 ```javascript
 const scrapeScribd = require('scribd-scraper');
