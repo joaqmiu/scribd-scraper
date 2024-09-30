@@ -15,8 +15,8 @@ npm i scribd-scraper
 ```javascript
 const scrapeScribd = require('scribd-scraper');
 
-const urlscribd = 'https://pt.scribd.com/document/477711709/1990-02-mara-maravilha-pdf';
-const directory = './images';
+const url = 'https://pt.scribd.com/document/477711709/1990-02-mara-maravilha-pdf';
+const dir = './images';
 
 scrapeScribd(urlscribd, directory)
   .then(() => {
