@@ -9,8 +9,8 @@ Install the package:
 ```bash
 npm i scribd-scraper
 ```
-
-### Example ( only download images )
+## Examples
+### Only download images
 
 ```javascript
 const scrapeScribd = require('scribd-scraper');
@@ -18,7 +18,7 @@ const scrapeScribd = require('scribd-scraper');
 const url = 'https://pt.scribd.com/document/477711709/1990-02-mara-maravilha-pdf';
 const dir = './images';
 
-scrapeScribd(urlscribd, directory)
+scrapeScribd(url, dir)
   .then(() => {
     console.log("Images downloaded successfully.");
   })

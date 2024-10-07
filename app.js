@@ -4,6 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
+function removeAccents(str) {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function generateRandomID(length = 5) {
+  return Math.random().toString(36).substring(2, 2 + length);
+}
+
 async function downloadImage(imgUrl, dir) {
   try {
     const response = await axios({
@@ -64,8 +72,12 @@ async function scrapeScribd(url, dir, pdf = false) {
       await fetchImagesFromJsonp(contentUrl, dir);
     }
 
+    const title = removeAccents($('title').text().trim().toLowerCase().replace(/\s+/g, '-'));
+    const randomID = generateRandomID();
+    const pdfFileName = `${title}-${randomID}.pdf`;
+
     if (pdf) {
-      await imagesToPDF(dir);
+      await imagesToPDF(dir, pdfFileName);
       const images = fs.readdirSync(dir).filter(file => file.endsWith('.jpg') || file.endsWith('.png'));
       for (const image of images) {
         fs.unlinkSync(path.join(dir, image));
@@ -76,9 +88,9 @@ async function scrapeScribd(url, dir, pdf = false) {
   }
 }
 
-async function imagesToPDF(dir) {
+async function imagesToPDF(dir, pdfFileName) {
   const doc = new PDFDocument({ autoFirstPage: false });
-  const outputFilePath = path.join(dir, 'file.pdf');
+  const outputFilePath = path.join(dir, pdfFileName);
   const stream = fs.createWriteStream(outputFilePath);
   doc.pipe(stream);
 
